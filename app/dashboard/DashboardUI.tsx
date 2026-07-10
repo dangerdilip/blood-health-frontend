@@ -8,11 +8,13 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  CartesianGrid,
+  Legend
 } from "recharts";
+import { Activity, AlertCircle, TrendingUp, CheckCircle, Plus, Trash2, ShieldAlert } from "lucide-react";
 
-const API_URL = "https://blood-health-app.onrender.com/risk/predict";
-
-/* ---------------- TYPES ---------------- */
+// Use environment variable if available, otherwise fallback
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://blood-health-app.onrender.com/risk/predict";
 
 type CBCRecord = {
   date: string;
@@ -25,111 +27,49 @@ type CBCRecord = {
   mchc: number | "";
 };
 
-/* ---------------- STYLES ---------------- */
-
-const container: React.CSSProperties = {
-  maxWidth: 720,
-  margin: "0 auto",
-  padding: "32px 20px",
+type APIResult = {
+  error?: boolean;
+  blood_status?: string;
+  future_risk?: string;
+  recommendation?: string;
+  risk_score?: number;
+  alerts?: string[];
+  flags?: string[];
+  normal_ranges?: Record<string, { min: number; max: number; unit: string }>;
+  records_submitted?: number;
+  min_records_for_trend?: number;
 };
 
-const header: React.CSSProperties = {
-  fontSize: 30,
-  fontWeight: 700,
-  marginBottom: 8,
-  color: "#0f172a",
+const defaultRecord: CBCRecord = {
+  date: new Date().toISOString().split("T")[0],
+  hemoglobin: "",
+  wbc: "",
+  platelets: "",
+  rbc: "",
+  mcv: "",
+  mch: "",
+  mchc: "",
 };
 
-const subHeader: React.CSSProperties = {
-  color: "#475569",
-  marginBottom: 28,
-};
-
-const card: React.CSSProperties = {
-  background: "#ffffff",
-  border: "1px solid #e5e7eb",
-  borderRadius: 14,
-  padding: 20,
-  marginBottom: 24,
-  boxShadow: "0 8px 24px rgba(0,0,0,0.04)",
-};
-
-const fieldGroup: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  marginBottom: 14,
-};
-
-const label: React.CSSProperties = {
-  fontSize: 13,
-  fontWeight: 500,
-  marginBottom: 6,
-  color: "#334155",
-};
-
-const input: React.CSSProperties = {
-  padding: "10px 12px",
-  borderRadius: 8,
-  border: "1px solid #cbd5e1",
-  fontSize: 14,
-};
-
-const primaryBtn: React.CSSProperties = {
-  background: "linear-gradient(135deg, #2563eb, #1e40af)",
-  color: "#fff",
-  padding: "12px 20px",
-  borderRadius: 10,
-  border: "none",
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
-const secondaryBtn: React.CSSProperties = {
-  background: "#f8fafc",
-  color: "#2563eb",
-  padding: "10px 16px",
-  borderRadius: 10,
-  border: "1px solid #c7d2fe",
-  fontWeight: 500,
-  cursor: "pointer",
-};
-
-const buttonRow: React.CSSProperties = {
-  display: "flex",
-  gap: 12,
-  flexWrap: "wrap",
-  marginBottom: 28,
-};
-
-/* ---------------- COMPONENT ---------------- */
+const markers = [
+  { key: "hemoglobin", label: "Hemoglobin", short: "Hb" },
+  { key: "wbc", label: "White Blood Cells", short: "WBC" },
+  { key: "platelets", label: "Platelets", short: "PLT" },
+  { key: "rbc", label: "Red Blood Cells", short: "RBC" },
+  { key: "mcv", label: "MCV", short: "MCV" },
+  { key: "mch", label: "MCH", short: "MCH" },
+  { key: "mchc", label: "MCHC", short: "MCHC" },
+];
 
 export default function DashboardUI() {
-  const [records, setRecords] = useState<CBCRecord[]>([
-    {
-      date: "",
-      hemoglobin: "",
-      wbc: "",
-      platelets: "",
-      rbc: "",
-      mcv: "",
-      mch: "",
-      mchc: "",
-    },
-  ]);
-
-  const [result, setResult] = useState<any>(null);
+  const [records, setRecords] = useState<CBCRecord[]>([{ ...defaultRecord }]);
+  const [result, setResult] = useState<APIResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showChart, setShowChart] = useState(false);
+  const [validationError, setValidationError] = useState("");
 
-  /* ---------- HANDLERS ---------- */
-
-  const handleChange = (
-    index: number,
-    field: keyof CBCRecord,
-    value: string
-  ) => {
+  const handleChange = (index: number, field: keyof CBCRecord, value: string) => {
+    setValidationError("");
     let finalValue: any = value;
-
     if (field !== "date") {
       if (value === "") finalValue = "";
       else {
@@ -138,35 +78,32 @@ export default function DashboardUI() {
         finalValue = num;
       }
     }
-
-    setRecords((prev) =>
-      prev.map((r, i) => (i === index ? { ...r, [field]: finalValue } : r))
-    );
+    setRecords((prev) => prev.map((r, i) => (i === index ? { ...r, [field]: finalValue } : r)));
   };
 
-  const addRecord = () => {
-    setRecords((prev) => [
-      ...prev,
-      {
-        date: "",
-        hemoglobin: "",
-        wbc: "",
-        platelets: "",
-        rbc: "",
-        mcv: "",
-        mch: "",
-        mchc: "",
-      },
-    ]);
-  };
+  const addRecord = () => setRecords((prev) => [...prev, { ...defaultRecord }]);
+  const removeRecord = (index: number) => setRecords((prev) => prev.filter((_, i) => i !== index));
 
-  const removeLastRecord = () => {
-    if (records.length > 1) {
-      setRecords((prev) => prev.slice(0, -1));
+  const validateRecords = () => {
+    for (let i = 0; i < records.length; i++) {
+      const rec = records[i];
+      if (!rec.date) return `Record ${i + 1}: Date is required.`;
+      for (const m of markers) {
+        if (rec[m.key as keyof CBCRecord] === "" || Number(rec[m.key as keyof CBCRecord]) <= 0) {
+          return `Record ${i + 1}: ${m.label} is required and must be > 0.`;
+        }
+      }
     }
+    return "";
   };
 
   const analyzeRisk = async () => {
+    const error = validateRecords();
+    if (error) {
+      setValidationError(error);
+      return;
+    }
+
     setLoading(true);
     setResult(null);
 
@@ -193,123 +130,231 @@ export default function DashboardUI() {
 
       const data = await res.json();
       setResult(data);
-      if (records.length >= 2) setShowChart(true);
     } catch {
-      setResult({ error: "Failed to connect to backend" });
+      setResult({ error: true, blood_status: "Connection Failed", recommendation: "Unable to reach the risk analysis service." });
     } finally {
       setLoading(false);
     }
   };
 
-  /* ---------------- RENDER ---------------- */
+  const getStatusColor = (status?: string) => {
+    if (!status) return "text-muted-foreground";
+    if (status.includes("Critical") || status.includes("Failed") || status.includes("Invalid")) return "text-destructive border-destructive";
+    if (status.includes("Abnormal")) return "text-chart-4 border-chart-4";
+    return "text-primary border-primary";
+  };
 
   return (
-    <div style={container}>
-      <h1 style={header}>Blood Health Risk Analyzer</h1>
-      <p style={subHeader}>
-        Enter one or more CBC reports to assess blood stability and future risk.
-      </p>
-
-      {records.map((rec, idx) => (
-        <div key={idx} style={card}>
-          <h3 style={{ marginBottom: 16 }}>
-            CBC Record {idx + 1}
-          </h3>
-
-          <div style={fieldGroup}>
-            <label style={label}>Test Date</label>
-            <input
-              type="date"
-              max={new Date().toISOString().split("T")[0]}
-              value={rec.date}
-              onChange={(e) => handleChange(idx, "date", e.target.value)}
-              style={input}
-            />
-          </div>
-
-          {[
-            ["hemoglobin", "Hemoglobin (g/dL)"],
-            ["wbc", "White Blood Cells (×10³/µL)"],
-            ["platelets", "Platelets (×10³/µL)"],
-            ["rbc", "Red Blood Cells (million/µL)"],
-            ["mcv", "MCV (fL)"],
-            ["mch", "MCH (pg)"],
-            ["mchc", "MCHC (g/dL)"],
-          ].map(([key, labelText]) => (
-            <div key={key} style={fieldGroup}>
-              <label style={label}>{labelText}</label>
-              <input
-                type="number"
-                min={0}
-                value={(rec as any)[key]}
-                onChange={(e) =>
-                  handleChange(idx, key as keyof CBCRecord, e.target.value)
-                }
-                style={input}
-              />
-            </div>
-          ))}
-        </div>
-      ))}
-
-      <div style={buttonRow}>
-        <button style={secondaryBtn} onClick={addRecord}>
-          + Add CBC Record
-        </button>
-        <button style={secondaryBtn} onClick={removeLastRecord}>
-          − Remove Last Record
-        </button>
-        <button style={primaryBtn} onClick={analyzeRisk}>
-          {loading ? "Analyzing…" : "Analyze Risk"}
-        </button>
+    <div className="max-w-6xl mx-auto px-4 py-8 animate-fade-in-up">
+      <div className="mb-10">
+        <h1 className="text-4xl font-bold tracking-tight mb-2">Blood Health Analytics</h1>
+        <p className="text-muted-foreground text-lg">Enter complete blood count records to predict stability and risk.</p>
       </div>
 
-      {result && (
-        <div style={card}>
-          <h3>Result</h3>
-          <p><b>Status:</b> {result.blood_status}</p>
-          <p><b>Future Risk:</b> {result.future_risk}</p>
-          <p><b>Recommendation:</b> {result.recommendation}</p>
+      <div className="grid lg:grid-cols-12 gap-8">
+        {/* Left Col: Forms */}
+        <div className="lg:col-span-7 space-y-6">
+          {records.map((rec, idx) => (
+            <div key={idx} className="glass-card p-6 rounded-2xl relative group transition-all hover:border-primary/30">
+              <div className="flex justify-between items-center mb-6 border-b border-border/50 pb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-primary" /> Record {idx + 1}
+                </h3>
+                {records.length > 1 && (
+                  <button 
+                    onClick={() => removeRecord(idx)}
+                    className="text-muted-foreground hover:text-destructive transition-colors p-2 rounded-lg hover:bg-destructive/10"
+                    title="Remove Record"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
 
-          {result.alerts?.length > 0 && (
-            <>
-              <h4 style={{ marginTop: 12 }}>⚠ Clinical Alerts</h4>
-              <ul>
-                {result.alerts.map((a: string, i: number) => (
-                  <li key={i}>{a}</li>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+                <div className="col-span-full sm:col-span-2 md:col-span-3 mb-2">
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">Test Date</label>
+                  <input
+                    type="date"
+                    max={new Date().toISOString().split("T")[0]}
+                    value={rec.date}
+                    onChange={(e) => handleChange(idx, "date", e.target.value)}
+                    className="w-full bg-input/50 border border-border rounded-lg px-4 py-2.5 text-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                  />
+                </div>
+
+                {markers.map((m) => (
+                  <div key={m.key}>
+                    <label className="block text-sm font-medium text-muted-foreground mb-1" title={m.label}>
+                      {m.short}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.1"
+                        placeholder="0.0"
+                        value={rec[m.key as keyof CBCRecord]}
+                        onChange={(e) => handleChange(idx, m.key as keyof CBCRecord, e.target.value)}
+                        className="w-full bg-input/50 border border-border rounded-lg px-4 py-2.5 text-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                      />
+                      {result?.normal_ranges && (
+                        <div className="text-[10px] text-muted-foreground mt-1 absolute -bottom-5 right-0">
+                          {result.normal_ranges[m.key].min}-{result.normal_ranges[m.key].max}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 ))}
-              </ul>
-            </>
-          )}
-        </div>
-      )}
+              </div>
+            </div>
+          ))}
 
-      {records.length >= 2 && (
-        <>
-          <button
-            style={secondaryBtn}
-            onClick={() => setShowChart((s) => !s)}
-          >
-            {showChart ? "Hide Trend Chart" : "Show Trend Chart"}
-          </button>
-
-          {showChart && (
-            <div style={{ ...card, marginTop: 16 }}>
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={records}>
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line dataKey="hemoglobin" stroke="#2563eb" />
-                  <Line dataKey="wbc" stroke="#dc2626" />
-                  <Line dataKey="platelets" stroke="#16a34a" />
-                </LineChart>
-              </ResponsiveContainer>
+          {validationError && (
+            <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg flex items-center gap-2 animate-fade-in-up">
+              <AlertCircle className="w-5 h-5" />
+              <p className="text-sm font-medium">{validationError}</p>
             </div>
           )}
-        </>
-      )}
+
+          <div className="flex flex-wrap gap-4">
+            <button
+              onClick={addRecord}
+              className="flex-1 bg-secondary hover:bg-secondary/80 text-secondary-foreground border border-border px-6 py-3.5 rounded-xl font-medium transition-all flex items-center justify-center gap-2"
+            >
+              <Plus className="w-5 h-5" /> Add Historical Record
+            </button>
+            <button
+              onClick={analyzeRisk}
+              disabled={loading}
+              className="flex-1 glow-button bg-primary text-primary-foreground px-6 py-3.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <>
+                  <span className="animate-spin inline-block w-5 h-5 border-2 border-current border-t-transparent rounded-full" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <Activity className="w-5 h-5" /> Analyze Risk
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Right Col: Results */}
+        <div className="lg:col-span-5 space-y-6">
+          {loading ? (
+            <div className="glass-card p-8 rounded-2xl flex flex-col items-center justify-center min-h-[400px] border-primary/20">
+              <div className="w-16 h-16 relative mb-6">
+                <div className="absolute inset-0 border-4 border-primary/20 rounded-full"></div>
+                <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+              </div>
+              <h3 className="text-xl font-semibold mb-2 animate-pulse">Running ML Models...</h3>
+              <p className="text-muted-foreground text-center text-sm">Evaluating Cox Proportional Hazards</p>
+            </div>
+          ) : result ? (
+            <div className={`glass-card p-6 rounded-2xl border-t-4 animate-fade-in-up ${getStatusColor(result.blood_status)}`}>
+              <div className="flex items-start gap-4 mb-6">
+                <div className={`p-3 rounded-xl bg-background border ${getStatusColor(result.blood_status)}`}>
+                  {result.error || result.blood_status?.includes("Critical") ? <ShieldAlert className="w-8 h-8" /> : 
+                   result.blood_status?.includes("Abnormal") ? <AlertCircle className="w-8 h-8" /> : 
+                   <CheckCircle className="w-8 h-8" />}
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-foreground mb-1">{result.blood_status}</h2>
+                  <p className="text-muted-foreground text-sm">{result.future_risk}</p>
+                </div>
+              </div>
+
+              {result.risk_score !== undefined && (
+                <div className="mb-6 bg-background rounded-xl p-4 border border-border">
+                  <div className="flex justify-between items-end mb-2">
+                    <span className="text-sm font-medium text-muted-foreground">30-Day Risk Score</span>
+                    <span className="text-2xl font-bold">{(result.risk_score * 100).toFixed(1)}%</span>
+                  </div>
+                  <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full transition-all duration-1000 ease-out ${result.risk_score > 0.3 ? 'bg-destructive' : result.risk_score > 0.15 ? 'bg-chart-4' : 'bg-primary'}`}
+                      style={{ width: `${Math.min(result.risk_score * 100, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-4 mb-6">
+                <div className="bg-primary/5 border border-primary/10 rounded-xl p-4">
+                  <h4 className="text-sm font-semibold text-foreground mb-1">Recommendation</h4>
+                  <p className="text-sm text-muted-foreground">{result.recommendation}</p>
+                </div>
+              </div>
+
+              {result.alerts && result.alerts.length > 0 && (
+                <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4 mb-6">
+                  <h4 className="text-sm font-semibold text-destructive flex items-center gap-2 mb-3">
+                    <AlertCircle className="w-4 h-4" /> Clinical Alerts
+                  </h4>
+                  <ul className="space-y-2">
+                    {result.alerts.map((alert, i) => (
+                      <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <span className="text-destructive mt-0.5">•</span> {alert}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              {result.flags && result.flags.length > 0 && (
+                <div className="bg-chart-4/5 border border-chart-4/20 rounded-xl p-4">
+                  <h4 className="text-sm font-semibold text-chart-4 flex items-center gap-2 mb-3">
+                    <AlertCircle className="w-4 h-4" /> System Flags
+                  </h4>
+                  <ul className="space-y-2">
+                    {result.flags.map((flag, i) => (
+                      <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <span className="text-chart-4 mt-0.5">•</span> {flag}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="glass-card p-8 rounded-2xl flex flex-col items-center justify-center min-h-[400px] border-dashed border-2 border-border/50 text-center">
+              <TrendingUp className="w-16 h-16 text-muted-foreground/30 mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">Awaiting Data</h3>
+              <p className="text-muted-foreground text-sm max-w-[250px]">Enter your CBC records and click Analyze Risk to view your clinical assessment.</p>
+            </div>
+          )}
+
+          {/* Trend Chart (if multiple records) */}
+          {records.length > 1 && records.every(r => r.hemoglobin && r.wbc && r.platelets) && (
+            <div className="glass-card p-6 rounded-2xl animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+              <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-primary" /> Key Markers Trend
+              </h3>
+              <div className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={records}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                    <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} tickMargin={10} />
+                    <YAxis stroke="#94a3b8" fontSize={12} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#0f1629', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                      itemStyle={{ color: '#f1f5f9' }}
+                    />
+                    <Legend />
+                    <Line type="monotone" dataKey="hemoglobin" name="Hb" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                    <Line type="monotone" dataKey="wbc" name="WBC" stroke="#06b6d4" strokeWidth={2} dot={{ r: 4 }} />
+                    <Line type="monotone" dataKey="platelets" name="PLT" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 4 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
-
