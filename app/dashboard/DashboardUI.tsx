@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   LineChart,
   Line,
@@ -12,20 +12,11 @@ import {
   Legend
 } from "recharts";
 import { Activity, AlertCircle, TrendingUp, CheckCircle, Plus, Trash2, ShieldAlert } from "lucide-react";
+import { useAuth } from "@clerk/nextjs";
+import { getUserRecords, saveUserRecords, CBCRecordInput } from "../actions";
 
 // Use environment variable if available, otherwise fallback
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://blood-health-app.onrender.com/risk/predict";
-
-type CBCRecord = {
-  date: string;
-  hemoglobin: number | "";
-  wbc: number | "";
-  platelets: number | "";
-  rbc: number | "";
-  mcv: number | "";
-  mch: number | "";
-  mchc: number | "";
-};
 
 type APIResult = {
   error?: boolean;
@@ -40,15 +31,15 @@ type APIResult = {
   min_records_for_trend?: number;
 };
 
-const defaultRecord: CBCRecord = {
+const defaultRecord: CBCRecordInput = {
   date: new Date().toISOString().split("T")[0],
-  hemoglobin: "",
-  wbc: "",
-  platelets: "",
-  rbc: "",
-  mcv: "",
-  mch: "",
-  mchc: "",
+  hemoglobin: 0,
+  wbc: 0,
+  platelets: 0,
+  rbc: 0,
+  mcv: 0,
+  mch: 0,
+  mchc: 0,
 };
 
 const markers = [
@@ -62,12 +53,76 @@ const markers = [
 ];
 
 export default function DashboardUI() {
-  const [records, setRecords] = useState<CBCRecord[]>([{ ...defaultRecord }]);
+  const { isSignedIn, isLoaded } = useAuth();
+  
+  // We use `any` here or allow string in state so empty inputs don't crash
+  const [records, setRecords] = useState<any[]>([{ ...defaultRecord, hemoglobin: "", wbc: "", platelets: "", rbc: "", mcv: "", mch: "", mchc: "" }]);
   const [result, setResult] = useState<APIResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [validationError, setValidationError] = useState("");
+  const [saveStatus, setSaveStatus] = useState("");
 
-  const handleChange = (index: number, field: keyof CBCRecord, value: string) => {
+  // Load Data
+  useEffect(() => {
+    if (!isLoaded) return;
+    
+    async function loadData() {
+      if (isSignedIn) {
+        const res = await getUserRecords();
+        if (res.records && res.records.length > 0) {
+          setRecords(res.records);
+        }
+      } else {
+        const local = localStorage.getItem("cbc_records");
+        if (local) {
+          try {
+            setRecords(JSON.parse(local));
+          } catch (e) {}
+        }
+      }
+    }
+    loadData();
+  }, [isSignedIn, isLoaded]);
+
+  // Auto-Save Data
+  useEffect(() => {
+    if (!isLoaded) return;
+    
+    const handler = setTimeout(async () => {
+      // Don't save if it's completely empty or invalid
+      const hasValidData = records.some(r => r.hemoglobin > 0 || r.wbc > 0);
+      if (!hasValidData) return;
+
+      if (isSignedIn) {
+        setSaveStatus("Saving...");
+        
+        // Ensure values are numbers for DB
+        const cleanRecords: CBCRecordInput[] = records.map(r => ({
+          date: r.date,
+          hemoglobin: Number(r.hemoglobin) || 0,
+          wbc: Number(r.wbc) || 0,
+          platelets: Number(r.platelets) || 0,
+          rbc: Number(r.rbc) || 0,
+          mcv: Number(r.mcv) || 0,
+          mch: Number(r.mch) || 0,
+          mchc: Number(r.mchc) || 0,
+        }));
+        
+        await saveUserRecords(cleanRecords);
+        setSaveStatus("Saved to Cloud");
+        setTimeout(() => setSaveStatus(""), 2000);
+      } else {
+        localStorage.setItem("cbc_records", JSON.stringify(records));
+        setSaveStatus("Saved Locally");
+        setTimeout(() => setSaveStatus(""), 2000);
+      }
+    }, 1500);
+    
+    return () => clearTimeout(handler);
+  }, [records, isSignedIn, isLoaded]);
+
+
+  const handleChange = (index: number, field: string, value: string) => {
     setValidationError("");
     let finalValue: any = value;
     if (field !== "date") {
@@ -81,7 +136,7 @@ export default function DashboardUI() {
     setRecords((prev) => prev.map((r, i) => (i === index ? { ...r, [field]: finalValue } : r)));
   };
 
-  const addRecord = () => setRecords((prev) => [...prev, { ...defaultRecord }]);
+  const addRecord = () => setRecords((prev) => [...prev, { ...defaultRecord, hemoglobin: "", wbc: "", platelets: "", rbc: "", mcv: "", mch: "", mchc: "" }]);
   const removeRecord = (index: number) => setRecords((prev) => prev.filter((_, i) => i !== index));
 
   const validateRecords = () => {
@@ -89,7 +144,7 @@ export default function DashboardUI() {
       const rec = records[i];
       if (!rec.date) return `Record ${i + 1}: Date is required.`;
       for (const m of markers) {
-        if (rec[m.key as keyof CBCRecord] === "" || Number(rec[m.key as keyof CBCRecord]) <= 0) {
+        if (rec[m.key] === "" || Number(rec[m.key]) <= 0) {
           return `Record ${i + 1}: ${m.label} is required and must be > 0.`;
         }
       }
@@ -146,14 +201,34 @@ export default function DashboardUI() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 animate-fade-in-up">
-      <div className="mb-10">
-        <h1 className="text-4xl font-bold tracking-tight mb-2">Blood Health Analytics</h1>
-        <p className="text-muted-foreground text-lg">Enter complete blood count records to predict stability and risk.</p>
+      <div className="flex justify-between items-end mb-10">
+        <div>
+          <h1 className="text-4xl font-bold tracking-tight mb-2">Blood Health Analytics</h1>
+          <p className="text-muted-foreground text-lg">Enter complete blood count records to predict stability and risk.</p>
+        </div>
+        {saveStatus && (
+          <span className="text-sm font-medium text-muted-foreground bg-secondary px-3 py-1 rounded-full animate-fade-in-up">
+            {saveStatus}
+          </span>
+        )}
       </div>
 
       <div className="grid lg:grid-cols-12 gap-8">
         {/* Left Col: Forms */}
         <div className="lg:col-span-7 space-y-6">
+          
+          {!isSignedIn && isLoaded && (
+            <div className="bg-primary/10 border border-primary/20 text-primary px-4 py-3 rounded-lg flex items-center justify-between animate-fade-in-up">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5" />
+                <p className="text-sm font-medium">You are in Guest Mode. Data is saved locally.</p>
+              </div>
+              <a href="/sign-up" className="text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md font-medium hover:bg-primary/90 transition-all">
+                Sign Up to Save
+              </a>
+            </div>
+          )}
+
           {records.map((rec, idx) => (
             <div key={idx} className="glass-card p-6 rounded-2xl relative group transition-all hover:border-primary/30">
               <div className="flex justify-between items-center mb-6 border-b border-border/50 pb-4">
@@ -194,8 +269,8 @@ export default function DashboardUI() {
                         min={0}
                         step="0.1"
                         placeholder="0.0"
-                        value={rec[m.key as keyof CBCRecord]}
-                        onChange={(e) => handleChange(idx, m.key as keyof CBCRecord, e.target.value)}
+                        value={rec[m.key]}
+                        onChange={(e) => handleChange(idx, m.key, e.target.value)}
                         className="w-full bg-input/50 border border-border rounded-lg px-4 py-2.5 text-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
                       />
                       {result?.normal_ranges && (

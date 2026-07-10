@@ -1,21 +1,23 @@
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { Activity, TrendingUp, AlertTriangle, ArrowRight, Shield, Microscope, BarChart3 } from "lucide-react";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 export default async function HomePage() {
   const { userId } = await auth();
   const targetHref = userId ? "/dashboard" : "/sign-in";
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="min-h-screen bg-background text-foreground transition-colors duration-300">
       {/* Navbar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 glass-card">
+      <nav className="fixed top-0 left-0 right-0 z-50 glass-card border-b border-border">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Activity className="w-6 h-6 text-primary" />
             <span className="text-lg font-bold">Blood Health</span>
           </div>
           <div className="flex items-center gap-4">
+            <ThemeToggle />
             {!userId ? (
               <>
                 <Link href="/sign-in" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
