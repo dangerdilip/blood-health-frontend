@@ -70,6 +70,7 @@ export default function DashboardUI() {
   const [loading, setLoading] = useState(false);
   const [validationError, setValidationError] = useState("");
   const [saveStatus, setSaveStatus] = useState("");
+  const [activeMetric, setActiveMetric] = useState("hemoglobin");
 
   // Load Data from LocalStorage
   useEffect(() => {
@@ -401,23 +402,51 @@ export default function DashboardUI() {
             {/* Trend Chart (if multiple records) */}
             {records.length > 1 && records.every(r => r.hemoglobin && r.wbc && r.platelets) && (
               <div className="medical-card p-8 rounded-2xl shadow-xl bg-card/95 backdrop-blur-md border border-border/80 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-                <h3 className="text-lg font-bold mb-8 flex items-center gap-2 text-foreground tracking-tight">
-                  <TrendingUp className="w-5 h-5 text-primary" /> Longitudinal Biomarker Trends
-                </h3>
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-bold flex items-center gap-2 text-foreground tracking-tight">
+                    <TrendingUp className="w-5 h-5 text-primary" /> Longitudinal Biomarker Trends
+                  </h3>
+                  <div className="flex bg-background/50 p-1 rounded-lg border border-border/50">
+                    <button 
+                      onClick={() => setActiveMetric("hemoglobin")}
+                      className={`text-[10px] font-bold px-3 py-1.5 rounded-md transition-all ${activeMetric === 'hemoglobin' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                      Hb
+                    </button>
+                    <button 
+                      onClick={() => setActiveMetric("wbc")}
+                      className={`text-[10px] font-bold px-3 py-1.5 rounded-md transition-all ${activeMetric === 'wbc' ? 'bg-[#0284c7] text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                      WBC
+                    </button>
+                    <button 
+                      onClick={() => setActiveMetric("platelets")}
+                      className={`text-[10px] font-bold px-3 py-1.5 rounded-md transition-all ${activeMetric === 'platelets' ? 'bg-[#8b5cf6] text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                      PLT
+                    </button>
+                  </div>
+                </div>
                 <div className="h-[280px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={records}>
                       <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border opacity-30" vertical={false} />
                       <XAxis dataKey="date" stroke="currentColor" className="text-muted-foreground font-mono" fontSize={11} tickMargin={12} axisLine={false} tickLine={false} />
-                      <YAxis stroke="currentColor" className="text-muted-foreground font-mono" fontSize={11} axisLine={false} tickLine={false} tickMargin={12} />
+                      <YAxis stroke="currentColor" className="text-muted-foreground font-mono" fontSize={11} axisLine={false} tickLine={false} tickMargin={12} domain={['auto', 'auto']} />
                       <Tooltip 
                         contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '12px', color: 'var(--foreground)', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', fontWeight: 'bold' }}
                         itemStyle={{ color: 'var(--foreground)' }}
                       />
-                      <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '12px', fontWeight: '600' }} />
-                      <Line type="monotone" dataKey="hemoglobin" name="Hb" stroke="#0d9488" strokeWidth={3} dot={{ r: 5, strokeWidth: 2, fill: 'var(--card)' }} activeDot={{ r: 7 }} />
-                      <Line type="monotone" dataKey="wbc" name="WBC" stroke="#0284c7" strokeWidth={3} dot={{ r: 5, strokeWidth: 2, fill: 'var(--card)' }} />
-                      <Line type="monotone" dataKey="platelets" name="PLT" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 5, strokeWidth: 2, fill: 'var(--card)' }} />
+                      
+                      {activeMetric === "hemoglobin" && (
+                        <Line type="monotone" dataKey="hemoglobin" name="Hb" stroke="#0d9488" strokeWidth={3} dot={{ r: 5, strokeWidth: 2, fill: 'var(--card)' }} activeDot={{ r: 7 }} animationDuration={1000} />
+                      )}
+                      {activeMetric === "wbc" && (
+                        <Line type="monotone" dataKey="wbc" name="WBC" stroke="#0284c7" strokeWidth={3} dot={{ r: 5, strokeWidth: 2, fill: 'var(--card)' }} activeDot={{ r: 7 }} animationDuration={1000} />
+                      )}
+                      {activeMetric === "platelets" && (
+                        <Line type="monotone" dataKey="platelets" name="PLT" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 5, strokeWidth: 2, fill: 'var(--card)' }} activeDot={{ r: 7 }} animationDuration={1000} />
+                      )}
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
