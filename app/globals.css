@@ -134,13 +134,84 @@
 .animate-draw-gauge { animation: draw-gauge 1.5s ease-out forwards; }
 
 .medical-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  @apply relative overflow-hidden;
 }
 
-.dark .medical-card {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+.medical-card::before {
+  content: '';
+  @apply absolute top-0 left-0 w-1 h-full bg-primary;
+}
+
+/* --- Themed Backgrounds --- */
+.bg-light-mesh {
+  background-image: 
+    radial-gradient(at 40% 20%, rgba(14, 165, 233, 0.05) 0px, transparent 50%),
+    radial-gradient(at 80% 0%, rgba(10, 185, 129, 0.05) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, rgba(14, 165, 233, 0.05) 0px, transparent 50%);
+  background-size: 200% 200%;
+  animation: bg-drift 15s ease infinite;
+}
+
+.bg-dark-mesh {
+  background-image: 
+    radial-gradient(at 40% 20%, rgba(225, 29, 72, 0.08) 0px, transparent 50%),
+    radial-gradient(at 80% 0%, rgba(2, 132, 199, 0.08) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, rgba(15, 23, 42, 1) 0px, transparent 50%);
+  background-color: #020617; /* Slate 950 */
+  background-size: 200% 200%;
+  animation: pulse-mesh 8s ease-in-out infinite alternate;
+}
+
+@keyframes bg-drift {
+  0% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
+}
+
+@keyframes pulse-mesh {
+  0% { opacity: 0.8; transform: scale(1); }
+  100% { opacity: 1; transform: scale(1.02); }
+}
+
+/* --- Blood Drop Loader --- */
+.blood-drop {
+  width: 30px;
+  height: 30px;
+  border-radius: 50% 50% 50% 0;
+  background: #e11d48; /* Rose 600 */
+  transform: rotate(-45deg);
+  animation: drop-fall 1.5s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  box-shadow: inset -3px -3px 5px rgba(0,0,0,0.2), 0 0 10px rgba(225, 29, 72, 0.5);
+  position: relative;
+  z-index: 2;
+}
+
+.blood-ripple {
+  position: absolute;
+  top: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 4px;
+  background: transparent;
+  border: 2px solid #e11d48;
+  border-radius: 50%;
+  animation: drop-ripple 1.5s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  opacity: 0;
+}
+
+@keyframes drop-fall {
+  0% { transform: translateY(-30px) rotate(-45deg) scale(0.8); opacity: 0; }
+  20% { transform: translateY(-20px) rotate(-45deg) scale(1); opacity: 1; }
+  60% { transform: translateY(10px) rotate(-45deg) scale(0.9); opacity: 1; }
+  80% { transform: translateY(10px) rotate(-45deg) scale(0.5); opacity: 0; }
+  100% { transform: translateY(10px) rotate(-45deg) scale(0); opacity: 0; }
+}
+
+@keyframes drop-ripple {
+  0%, 60% { width: 10px; height: 4px; opacity: 0; transform: translateX(-50%) translateY(0); }
+  70% { width: 40px; height: 12px; opacity: 0.6; transform: translateX(-50%) translateY(5px); }
+  100% { width: 80px; height: 24px; opacity: 0; transform: translateX(-50%) translateY(5px); }
 }
 
 .gradient-text {
