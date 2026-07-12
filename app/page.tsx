@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { auth } from "@clerk/nextjs/server";
-import { Activity, TrendingUp, AlertTriangle, ArrowRight, Shield, Microscope } from "lucide-react";
+import { Activity, TrendingUp, AlertTriangle, ArrowRight, Shield, Microscope, Droplet } from "lucide-react";
 import { ThemeToggle } from "../components/ThemeToggle";
 
 export default async function HomePage() {
@@ -79,20 +79,38 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          {/* Floating Dashboard Preview */}
-          <div className="animate-float relative z-20 mx-auto mt-20 max-w-5xl rounded-2xl border border-border/50 bg-background/50 p-2 shadow-2xl backdrop-blur-sm">
-            <div className="rounded-xl overflow-hidden shadow-inner border border-border/30 bg-card">
-              <Image 
-                src="/dashboard-preview.png" 
-                alt="Blood Health Dashboard Preview" 
-                width={1200} 
-                height={800} 
-                className="w-full object-cover"
-                priority
-              />
+          {/* Abstract Medical Graphic instead of fake UI image */}
+          <div className="animate-float relative z-20 mx-auto mt-20 max-w-3xl">
+            <div className="relative h-64 md:h-80 w-full rounded-3xl border border-border/50 bg-card/40 backdrop-blur-md shadow-2xl flex items-center justify-center overflow-hidden group">
+              {/* Animated grid background */}
+              <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] opacity-30 group-hover:opacity-50 transition-opacity"></div>
+              
+              {/* Glowing orbs */}
+              <div className="absolute top-1/2 left-1/4 w-32 h-32 bg-primary/20 rounded-full blur-3xl animate-pulse"></div>
+              <div className="absolute bottom-1/4 right-1/4 w-40 h-40 bg-chart-4/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+              <div className="absolute top-1/4 right-1/3 w-24 h-24 bg-destructive/10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+
+              {/* Central Icon */}
+              <div className="relative z-10 flex flex-col items-center">
+                <div className="w-24 h-24 rounded-full bg-background border border-border/60 shadow-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500">
+                  <Activity className="w-12 h-12 text-primary group-hover:text-chart-4 transition-colors duration-500" />
+                </div>
+                <div className="flex gap-4">
+                  <div className="p-3 rounded-xl bg-background/80 backdrop-blur-sm border border-border/50 shadow-md">
+                    <Droplet className="w-6 h-6 text-destructive/80" />
+                  </div>
+                  <div className="p-3 rounded-xl bg-background/80 backdrop-blur-sm border border-border/50 shadow-md">
+                    <Microscope className="w-6 h-6 text-primary/80" />
+                  </div>
+                  <div className="p-3 rounded-xl bg-background/80 backdrop-blur-sm border border-border/50 shadow-md">
+                    <Shield className="w-6 h-6 text-chart-4/80" />
+                  </div>
+                </div>
+              </div>
             </div>
-            {/* Decorative Glow behind the image */}
-            <div className="absolute -inset-4 -z-10 rounded-[2rem] bg-gradient-to-b from-primary/20 to-transparent blur-2xl opacity-50"></div>
+            
+            {/* Decorative Glow behind the container */}
+            <div className="absolute -inset-4 -z-10 rounded-[3rem] bg-gradient-to-b from-primary/10 to-transparent blur-2xl opacity-50"></div>
           </div>
         </div>
       </section>
