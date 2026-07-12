@@ -10,7 +10,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
       {/* Dashboard Navbar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 glass-card border-b border-border">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <Activity className="w-6 h-6 text-primary" />
